@@ -44,6 +44,7 @@
 #define QSV_HAVE_LA     QSV_VERSION_ATLEAST(1, 7)
 #define QSV_HAVE_LA_DS  QSV_VERSION_ATLEAST(1, 8)
 #define QSV_HAVE_LA_HRD QSV_VERSION_ATLEAST(1, 11)
+#define QSV_HAVE_VDENC  QSV_VERSION_ATLEAST(1, 15)
 
 #if defined(_WIN32)
 #define QSV_HAVE_AVBR   QSV_VERSION_ATLEAST(1, 3)
@@ -66,7 +67,7 @@
 #endif
 
 #define QSV_COMMON_OPTS \
-{ "async_depth", "Maximum processing parallelism", OFFSET(qsv.async_depth), AV_OPT_TYPE_INT, { .i64 = ASYNC_DEPTH_DEFAULT }, 0, INT_MAX, VE },  \
+{ "async_depth", "Maximum processing parallelism", OFFSET(qsv.async_depth), AV_OPT_TYPE_INT, { .i64 = ASYNC_DEPTH_DEFAULT }, 1, INT_MAX, VE },  \
 { "avbr_accuracy",    "Accuracy of the AVBR ratecontrol",    OFFSET(qsv.avbr_accuracy),    AV_OPT_TYPE_INT, { .i64 = 0 }, 0, INT_MAX, VE },     \
 { "avbr_convergence", "Convergence of the AVBR ratecontrol", OFFSET(qsv.avbr_convergence), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, INT_MAX, VE },     \
 { "preset", NULL, OFFSET(qsv.preset), AV_OPT_TYPE_INT, { .i64 = MFX_TARGETUSAGE_BALANCED }, 0, 7,   VE, "preset" },                             \
@@ -159,6 +160,7 @@ typedef struct QSVEncContext {
     int int_ref_cycle_size;
     int int_ref_qp_delta;
     int recovery_point_sei;
+    int low_power;
 
 #if QSV_HAVE_MF
     int mfmode;
