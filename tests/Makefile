@@ -2,7 +2,8 @@ THREADS = 1
 VREF = tests/vsynth1/00.pgm
 AREF = tests/data/asynth1.sw
 
-OBJDIRS += tests/data tests/vsynth1 tests/data/filtergraphs
+FATE_OUTDIRS = tests/data tests/data/fate tests/data/filtergraphs tests/data/lavf tests/data/pixfmt tests/vsynth1
+OUTDIRS += $(FATE_OUTDIRS)
 
 $(VREF): tests/videogen$(HOSTEXESUF) | tests/vsynth1
 	$(M)./$< 'tests/vsynth1/'
@@ -59,7 +60,11 @@ PARSERDEMDEC       = $(call ALLYES, $(1)_PARSER $(2)_DEMUXER $(3)_DECODER)
 include $(SRC_PATH)/tests/fate/acodec.mak
 include $(SRC_PATH)/tests/fate/vcodec.mak
 
-include $(SRC_PATH)/tests/fate/avformat.mak
+include $(SRC_PATH)/tests/fate/lavf-audio.mak
+include $(SRC_PATH)/tests/fate/lavf-container.mak
+include $(SRC_PATH)/tests/fate/lavf-image.mak
+include $(SRC_PATH)/tests/fate/lavf-image2pipe.mak
+include $(SRC_PATH)/tests/fate/lavf-video.mak
 include $(SRC_PATH)/tests/fate/seek.mak
 
 include $(SRC_PATH)/tests/fate/aac.mak
@@ -105,6 +110,7 @@ include $(SRC_PATH)/tests/fate/mpc.mak
 include $(SRC_PATH)/tests/fate/mpeg4.mak
 include $(SRC_PATH)/tests/fate/opus.mak
 include $(SRC_PATH)/tests/fate/pcm.mak
+include $(SRC_PATH)/tests/fate/pixfmt.mak
 include $(SRC_PATH)/tests/fate/probe.mak
 include $(SRC_PATH)/tests/fate/prores.mak
 include $(SRC_PATH)/tests/fate/qt.mak
@@ -149,7 +155,7 @@ $(addprefix fate-, $(IGNORE_TESTS)): REPORT=ignore
 
 fate: $(FATE)
 
-$(FATE): $(FATE_UTILS:%=tests/%$(HOSTEXESUF))
+$(FATE): $(FATE_UTILS:%=tests/%$(HOSTEXESUF)) | $(FATE_OUTDIRS)
 	@echo "TEST    $(@:fate-%=%)"
 	$(Q)$(SRC_PATH)/tests/fate-run.sh $@ "$(SAMPLES)" "$(TARGET_EXEC)" "$(TARGET_PATH)" '$(CMD)' '$(CMP)' '$(REF)' '$(FUZZ)' '$(THREADS)' '$(THREAD_TYPE)' '$(CPUFLAGS)' '$(CMP_SHIFT)' '$(CMP_TARGET)' '$(SIZE_TOLERANCE)' '$(CMP_UNIT)' '$(GEN)' '$(HWACCEL)' '$(REPORT)'
 

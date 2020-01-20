@@ -152,17 +152,103 @@ enc_dec(){
     tests/tiny_psnr $srcfile $decfile $cmp_unit $cmp_shift
 }
 
-lavftest(){
+# FIXME: There is a certain duplication between the avconv-related helper
+# functions above and below that should be refactored.
+avconv2="$target_exec ${target_path}/avconv"
+raw_src="${target_path}/tests/vsynth1/%02d.pgm"
+pcm_src="${target_path}/tests/data/asynth1.sw"
+crcfile="tests/data/$test.lavf.crc"
+target_crcfile="${target_path}/$crcfile"
+
+echov(){
+    echo "$@" >&3
+}
+
+AVCONV_OPTS="-nostats -y -cpuflags $cpuflags -threads $threads"
+DEC_OPTS="-flags +bitexact -idct simple -sws_flags +accurate_rnd+bitexact -fflags +bitexact"
+ENC_OPTS="$DEC_OPTS -threads 1 -dct fastint"
+
+run_avconv(){
+    $echov $avconv2 $AVCONV_OPTS $*
+    $avconv2 $AVCONV_OPTS $*
+}
+
+do_avconv(){
+    f="$1"
+    shift
+    set -- $* ${target_path}/$f
+    run_avconv $*
+    do_md5sum $f
+    echo $(wc -c $f)
+}
+
+do_avconv_crc(){
+    f="$1"
+    shift
+    run_avconv $* -f crc "$target_crcfile"
+    echo "$f $(cat $crcfile)"
+}
+
+lavf_audio(){
     t="${test#lavf-}"
-    ref=${base}/ref/lavf/$t
-    ${base}/lavf-regression.sh $t lavf tests/vsynth1 "$target_exec" "$target_path" "$threads" "$thread_type" "$cpuflags"
+    outdir="tests/data/lavf"
+    file=${outdir}/lavf.$t
+    do_avconv $file $DEC_OPTS $1 -ar 44100 -f s16le -i $pcm_src $ENC_OPTS -t 1 -qscale 10 $2
+    do_avconv_crc $file $DEC_OPTS $3 -i $target_path/$file
+}
+
+lavf_container(){
+    t="${test#lavf-}"
+    outdir="tests/data/lavf"
+    file=${outdir}/lavf.$t
+    do_avconv $file $DEC_OPTS -f image2 -c:v pgmyuv -i $raw_src $DEC_OPTS -ar 44100 -f s16le $1 -i $pcm_src $ENC_OPTS -b:a 64k -t 1 -qscale:v 10 $2
+    test $3 = "disable_crc" ||
+        do_avconv_crc $file $DEC_OPTS -i $target_path/$file $3
+}
+
+lavf_image(){
+    t="${test#lavf-}"
+    outdir="tests/data/images/$t"
+    mkdir -p "$outdir"
+    file=${outdir}/%02d.$t
+    run_avconv $DEC_OPTS -f image2 -c:v pgmyuv -i $raw_src $1 $ENC_OPTS $2 -frames 12 -y -qscale 10 $target_path/$file
+    do_md5sum ${outdir}/02.$t
+    do_avconv_crc $file $DEC_OPTS $2 -i $target_path/$file
+    echo $(wc -c ${outdir}/02.$t)
+}
+
+lavf_image2pipe(){
+    t="${test#lavf-}"
+    t="${t%pipe}"
+    outdir="tests/data/lavf"
+    file=${outdir}/${t}pipe.$t
+    do_avconv $file $DEC_OPTS -f image2 -c:v pgmyuv -i $raw_src -f image2pipe $ENC_OPTS -t 1 -qscale 10
+    do_avconv_crc $file $DEC_OPTS -f image2pipe -i $target_path/$file
+}
+
+lavf_video(){
+    t="${test#lavf-}"
+    outdir="tests/data/lavf"
+    file=${outdir}/lavf.$t
+    do_avconv $file $DEC_OPTS -f image2 -c:v pgmyuv -i $raw_src $ENC_OPTS -t 1 -qscale 10 $1
+    do_avconv_crc $file $DEC_OPTS -i $target_path/$file $1
+}
+
+pixfmt_conversion(){
+    conversion="${test#pixfmt-}"
+    outdir="tests/data/pixfmt"
+    raw_dst="$outdir/$conversion.out.yuv"
+    file=${outdir}/${conversion}.yuv
+    run_avconv $DEC_OPTS -r 1 -f image2 -c:v pgmyuv -i $raw_src \
+               $ENC_OPTS -f rawvideo -t 1 -s 352x288 -pix_fmt $conversion $target_path/$raw_dst
+    do_avconv $file $DEC_OPTS -f rawvideo -s 352x288 -pix_fmt $conversion -i $target_path/$raw_dst \
+              $ENC_OPTS -f rawvideo -s 352x288 -pix_fmt yuv444p
 }
 
 video_filter(){
     filters=$1
     shift
     label=${test#filter-}
-    raw_src="${target_path}/tests/vsynth1/%02d.pgm"
     printf '%-20s' $label
     avconv $DEC_OPTS -f image2 -c:v pgmyuv -i $raw_src \
         $FLAGS $ENC_OPTS -vf "$filters" -c:v rawvideo -frames:v 5 $* -f nut md5:
@@ -195,8 +281,6 @@ pixfmts(){
 null(){
     :
 }
-
-mkdir -p "$outdir"
 
 exec 3>&2
 eval $command >"$outfile" 2>$errfile
